@@ -20,6 +20,23 @@ Register for [a complimentary developer account](https://developer.salesforce.co
 
 I'm using a dev container so I don't have to install Go on my Mac. All I need a is a Docker daemon, which in my case is `colima` and VS Code with the dev container extension.
 
+## Authentication
+
+Instance URL, Consumer Key and Consumer Secret are read as environment variables which you place in `.zshrc` or `.bashrc`
+
+```sh
+# set SalesForce environment variables
+export SALESFORCE_CONSUMER_KEY_1=""
+export SALESFORCE_CONSUMER_SECRET_1=""
+export SALESFORCE_URL_1=""
+```
+
+Retrieve the Url from the Salesforce UI, View Profile and the Url is under your profile user name.
+ 
+Retrieve the Consumer Key and Consumer Secret from the Salesforce UI, View Setup, App Manager, Connected Apps.
+
+The app authenticates uses these environment variables and generates an OAuth Access Token that is used for SOQL Salesforce calls.
+
 ## Resources
 
 [Go](https://go.dev/)
