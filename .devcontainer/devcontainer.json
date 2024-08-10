@@ -1,0 +1,26 @@
+{
+  "name": "Salesforce CLI w Go",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "."
+  },
+  "containerEnv": {
+    "SALESFORCE_URL_1": "${localEnv:SALESFORCE_URL_1}",
+    "SALESFORCE_CONSUMER_KEY_1": "${localEnv:SALESFORCE_CONSUMER_KEY_1}",
+    "SALESFORCE_CONSUMER_SECRET_1": "${localEnv:SALESFORCE_CONSUMER_SECRET_1}",
+    "CODER_ORG_ID": "${localEnv:CODER_ORG_ID}"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "GitHub.copilot"
+      ]
+      }  
+  }, 
+  "postCreateCommand": "bash -c '[ ! -f go.mod ] && go mod init sfdc-go || true; go mod tidy'",
+  "postStartCommand": "bash -c 'go build -o main . && ./main'",
+  "forwardPorts": []
+}
+
+  
