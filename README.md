@@ -12,6 +12,10 @@ This is a new project and actively under development.
 1. Lets users search for Accounts and prints results
 1. Retry logic to get a new OAuth Access Token if a Salesforce call fails e.g., token has expired
 
+## Developer Salesforce license
+
+Register for [a complimentary developer account](https://developer.salesforce.com/signup) to use with Salesforce API testing
+
 ## dev container
 
 I'm using a dev container so I don't have to install Go on my Mac. All I need a is a Docker daemon, which in my case is `colima` and VS Code with the dev container extension.
