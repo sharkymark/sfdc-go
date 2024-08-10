@@ -36,11 +36,12 @@ type Account struct {
 // 
 
 
-func printEnvVars(s *Salesforce) {
+func printSalesforceCreds(s *Salesforce) {
 
 	fmt.Println("Salesforce URL:", s.Url)
 	fmt.Println("Salesforce Consumer Key:", s.ConsumerKey)
 	fmt.Println("Salesforce Consumer Secret:", s.ConsumerSecret)
+	fmt.Println("Generated Salesforce Access Token:", s.AccessToken)
 
 }
 
@@ -102,8 +103,8 @@ func getAccessToken(s *Salesforce) (string, error) {
     form.Add("client_secret", s.ConsumerSecret)
 
     // 1. Print request details for debugging
-    fmt.Printf("Sending POST request to: %s\n", s.Url)
-    fmt.Printf("Form data: %v\n", form)
+    // fmt.Printf("Sending POST request to: %s\n", s.Url)
+    // fmt.Printf("Form data: %v\n", form)
 
     req, err := http.NewRequest("POST", s.Url+"/services/oauth2/token", strings.NewReader(form.Encode()))
     if err != nil {
@@ -128,7 +129,7 @@ func getAccessToken(s *Salesforce) (string, error) {
     }
 
     // 3. Print response details for debugging
-    fmt.Printf("Received response with status code: %d\n", resp.StatusCode)
+    // fmt.Printf("Received response with status code: %d\n", resp.StatusCode)
 
 
 
@@ -136,8 +137,8 @@ func getAccessToken(s *Salesforce) (string, error) {
     if err != nil {
         return "", fmt.Errorf("error reading response body: %w", err)
     }
-    fmt.Println("Received response body:")
-    fmt.Println(string(body))
+    // fmt.Println("Received response body:")
+    // fmt.Println(string(body))
 
     var result map[string]interface{}
 	err = json.Unmarshal(body, &result)
@@ -154,6 +155,13 @@ func getAccessToken(s *Salesforce) (string, error) {
 
     return accessToken, nil
 }
+
+// getAccountsByName retrieves a list of accounts from Salesforce
+//
+// Requires:
+//   - 	Salesforce struct with access token
+//	 - 	A string with the account name filter
+//
 
 func getAccountsByName(salesforce *Salesforce, nameFilter string) ([]Account, error) {
     type AccountsResponse struct {
@@ -208,6 +216,12 @@ func getAccountsByName(salesforce *Salesforce, nameFilter string) ([]Account, er
     return accountsResponse.Records, nil
 }
 
+// printAccounts prints a list of accounts
+//
+// Requires:
+//   - 	A slice of Account structs
+//
+
 func printAccounts(accounts []Account) {
     for _, account := range accounts {
         fmt.Printf("\nName: %s\nIndustry: %s\nType: %s\nWebsite: %s\nDescription:\n\n%s\n\n\n", account.Name, account.Industry, account.Type, account.Website, account.Description)
@@ -229,16 +243,15 @@ func main() {
 
 	// Get and print environment variables with Salesforce credentials
 	salesforceCreds := getEnvVars()
-	printEnvVars(&salesforceCreds)
 
 	// Get access token
-	accessToken, err := getAccessToken(&salesforceCreds)
+	_, err := getAccessToken(&salesforceCreds)
 	if err != nil {
 		fmt.Println("Error getting access token:", err)
 		return
 	}
 
-	fmt.Println("Access Token:", accessToken)
+	printSalesforceCreds(&salesforceCreds)
 
 	// Main menu
 	for {
