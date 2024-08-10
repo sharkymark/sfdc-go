@@ -220,7 +220,7 @@ func querySalesforce(salesforce *Salesforce, soql string, dest interface{}) erro
 //
 
 func getAccountsByName(salesforce *Salesforce, nameFilter string) ([]Account, error) {
-    soql := fmt.Sprintf("SELECT Id, Name, Type, Description, Website, Industry FROM Account WHERE Name LIKE '%%%s%%'", nameFilter)
+    soql := fmt.Sprintf("SELECT Id, Name, Type, Description, Website, Industry FROM Account WHERE Name LIKE '%%%s%%' ORDER BY Name", nameFilter)
     var accountsResponse struct {
         Records []Account `json:"records"`
     }
@@ -237,7 +237,7 @@ func getAccountsByName(salesforce *Salesforce, nameFilter string) ([]Account, er
 func getContacts(salesforce *Salesforce, contactFilter string) ([]Contact, error) {
     soql := fmt.Sprintf("SELECT Id, FirstName, LastName, Email, Account.Name, Phone, Description FROM Contact "+
 	"WHERE LastName LIKE '%%%s%%' OR FirstName LIKE '%%%s%%'"+
-	"OR Account.Name LIKE '%%%s%%' OR Email LIKE '%%%s%%'",
+	"OR Account.Name LIKE '%%%s%%' OR Email LIKE '%%%s%%' ORDER BY LastName",
 	contactFilter,contactFilter,contactFilter,contactFilter)
     var contactsResponse struct {
         Records []Contact `json:"records"`
