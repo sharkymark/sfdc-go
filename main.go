@@ -8,6 +8,8 @@ import (
 	"strings"
 	"io/ioutil"
 	"encoding/json"
+    "time"
+    //"io"
 	
 )
 
@@ -42,6 +44,17 @@ type Contact struct {
     Email     	string `json:"Email"`
     Phone     	string `json:"Phone"`
 	Description string `json:"Description"`
+}
+
+// Define a Task struct
+type Task struct {
+    Id        	string `json:"Id"`
+    Subject 	string `json:"Subject"`
+    Description string `json:"Description"`
+    Who 		Contact `json:"Who"`
+    CreatedBy 	Contact `json:"CreatedBy"`
+    Account 	Account `json:"Account"`
+    CreatedAt 	string `json:"CreatedDate"`
 }
 
 //
@@ -225,6 +238,18 @@ func querySalesforce(salesforce *Salesforce, soql string, dest interface{}) erro
     }
 
     // Parse the JSON response into the provided destination
+
+    /* for debugging json payload 
+    // Step 1: Read the entire response body
+    responseBody, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return fmt.Errorf("error reading response body: %w", err)
+    }
+
+    // Step 2: Print the raw JSON response
+    fmt.Println("Raw JSON response:", string(responseBody))
+    */
+
     err = json.NewDecoder(resp.Body).Decode(dest)
     if err != nil {
         return fmt.Errorf("error parsing JSON response: %w", err)
@@ -251,7 +276,7 @@ func getAccountsByName(salesforce *Salesforce, nameFilter string) ([]Account, er
     return accountsResponse.Records, err
 }
 
-// getContactsByName retrieves a list of accounts from Salesforce
+// getContacts retrieves a list of contacts from Salesforce
 //
 // Requires:
 //   - 	Salesforce struct with access token
@@ -269,6 +294,38 @@ func getContacts(salesforce *Salesforce, contactFilter string) ([]Contact, error
     return contactsResponse.Records, err
 }
 
+// getContactsByName retrieves a list of accounts from Salesforce
+//
+// Requires:
+//   - 	Salesforce struct with access token
+//	 - 	A string with the account name filter
+//
+func getTasks(salesforce *Salesforce, taskFilter string) ([]Task, error) {
+    soql := fmt.Sprintf("SELECT Id, Subject, Description, Who.FirstName, Who.LastName, CreatedBy.FirstName, CreatedBy.LastName, Account.Name, CreatedDate FROM Task "+
+	"WHERE Subject LIKE '%%%s%%' OR "+
+    "Who.LastName LIKE '%%%s%%' OR Who.FirstName LIKE '%%%s%%' "+
+	"OR Account.Name LIKE '%%%s%%' ORDER BY CreatedDate ASC",
+	taskFilter,taskFilter,taskFilter,taskFilter)
+    var tasksResponse struct {
+        Records []Task `json:"records"`
+    }
+    err := querySalesforce(salesforce, soql, &tasksResponse)
+    return tasksResponse.Records, err
+}
+
+// FormatCreatedAt takes a date string and returns it formatted as "YYYY-MM-DD HH:MM AM/PM".
+func FormatCreatedAt(dateStr string) (string, error) {
+    // Parse the input date string (adjust the layout according to your input format)
+    createdAt, err := time.Parse("2006-01-02T15:04:05.000-0700", dateStr) // Adjust as necessary
+    if err != nil {
+        return "", fmt.Errorf("error parsing date: %w", err)
+    }
+
+    // Format the date to the desired output
+    formattedDate := createdAt.Format("2006-01-02 03:04 PM")
+    return formattedDate, nil
+}
+
 // printAccounts prints a list of accounts
 //
 // Requires:
@@ -276,6 +333,12 @@ func getContacts(salesforce *Salesforce, contactFilter string) ([]Contact, error
 //
 
 func printAccounts(accounts []Account) {
+
+    if len(accounts) == 0 {
+        fmt.Println("\nNo accounts found.")
+        return
+    }
+
     for _, account := range accounts {
         fmt.Printf("\nName: %s\nIndustry: %s\nType: %s\nWebsite: %s\nDescription:\n\n%s\n\n", account.Name, account.Industry, account.Type, account.Website, account.Description)
     }
@@ -288,8 +351,46 @@ func printAccounts(accounts []Account) {
 //
 
 func printContacts(contacts []Contact) {
+
+    if len(contacts) == 0 {
+        fmt.Println("\nNo contacts found.")
+        return
+    }
+
     for _, contact := range contacts {
         fmt.Printf("\nContact Name: %s, %s\nAccount: %s\nEmail: %s\nDescription:\n\n%s\n\n", contact.LastName, contact.FirstName, contact.Account.Name, contact.Email, contact.Description)
+    }
+}
+
+// printTasks prints a list of tasks
+//
+// Requires:
+//   - 	A slice of Task structs
+//
+
+func printTasks(tasks []Task) {
+
+    if len(tasks) == 0 {
+        fmt.Println("\nNo tasks found.")
+        return
+    }
+
+    for _, task := range tasks {
+
+        // Call the reusable date formatting function
+        formattedDate, err := FormatCreatedAt(task.CreatedAt)
+        if err != nil {
+            fmt.Println(err) // Handle the error as needed
+            continue // Skip this task if there's an error
+        }
+
+        // Initialize the contact information variables
+        contactInfo := ""
+        if task.Who.FirstName != "" || task.Who.LastName != "" {
+            contactInfo = fmt.Sprintf("Contact: %s, %s\n", task.Who.FirstName, task.Who.LastName)
+        }
+
+        fmt.Printf("\n%s\nCreatedBy: %s %s\nAccount: %s\n%sSubject: %s\nDescription:\n\n%s\n\n", formattedDate, task.CreatedBy.FirstName, task.CreatedBy.LastName, task.Account.Name, contactInfo, task.Subject, task.Description)
     }
 }
 
@@ -322,7 +423,8 @@ func main() {
 		fmt.Println("\nMain Menu:\n")
 		fmt.Println("1. Search accounts")
 		fmt.Println("2. Search contacts")
-		fmt.Println("3. Exit\n")
+        fmt.Println("3. Search tasks")
+		fmt.Println("4. Exit\n")
 
 		var option string
 		fmt.Print("Enter your option: ")
@@ -357,7 +459,21 @@ func main() {
 
 			printContacts(contacts)
 
-		case "3":
+        case "3":
+
+            var taskFilter string
+            fmt.Print("\nEnter task subject, contact first, last name, email or account name filter: ")
+            fmt.Scanln(&taskFilter)
+
+            tasks, err := getTasks(&salesforceCreds, taskFilter)
+            if err != nil {
+                fmt.Println("Error retrieving tasks:", err)
+                return
+            }
+
+            printTasks(tasks)
+
+		case "4":
 			fmt.Println("\nExiting...")
 			return
 		default:

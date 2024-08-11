@@ -9,7 +9,7 @@ This is a new project and actively under development.
 ## Currently implemented functionality
 1. Reads environment variables required (Consumer Key, Consumer Secret, Salesforce Url)
 1. Retrieves an OAuth Access Token from Salesforce 
-1. Lets users search for Accounts and Contacts and prints results
+1. Lets users search for Accounts, Contacts, Tasks and prints results
 1. Retry logic to get a new OAuth Access Token if a Salesforce call fails e.g., token has expired
 
 ## Developer Salesforce license
