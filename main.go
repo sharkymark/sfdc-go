@@ -196,7 +196,30 @@ func querySalesforce(salesforce *Salesforce, soql string, dest interface{}) erro
     defer resp.Body.Close()
 
     // Check for successful response
-    if resp.StatusCode != http.StatusOK {
+    if resp.StatusCode == http.StatusUnauthorized {
+        // 401 Unauthorized indicates session expired, try to refresh the token
+        fmt.Println("Session expired, refreshing token...")
+
+        // Get a new access token
+        _, err := getAccessToken(salesforce)
+        if err != nil {
+            return fmt.Errorf("error refreshing access token: %w", err)
+        }
+
+        // Retry the request with the new token
+        req.Header.Set("Authorization", "Bearer "+salesforce.AccessToken)
+        resp, err = client.Do(req)
+        if err != nil {
+            return fmt.Errorf("error making request after token refresh: %w", err)
+        }
+        defer resp.Body.Close()
+
+        // Check the response again after retrying
+        if resp.StatusCode != http.StatusOK {
+            body, _ := ioutil.ReadAll(resp.Body)
+            return fmt.Errorf("unexpected status code after token refresh: %d, response body: %s", resp.StatusCode, string(body))
+        }
+    } else if resp.StatusCode != http.StatusOK {
         body, _ := ioutil.ReadAll(resp.Body)
         return fmt.Errorf("unexpected status code: %d, response body: %s", resp.StatusCode, string(body))
     }
