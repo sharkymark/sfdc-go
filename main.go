@@ -73,49 +73,113 @@ func printSalesforceCreds(s *Salesforce) {
 
 }
 
+func setVars(deployment *Salesforce, requiredVars []string, optional bool) {
+    missingVars := []string{}
+
+    for _, varName := range requiredVars {
+        value := os.Getenv(varName)
+        if value == "" {
+            missingVars = append(missingVars, varName)
+        } else {
+            switch varName {
+            case requiredVars[0]:
+                deployment.Url = value
+            case requiredVars[1]:
+                deployment.ConsumerKey = value
+            case requiredVars[2]:
+                deployment.ConsumerSecret = value
+            }
+        }
+    }
+
+    // If it's not optional and variables are missing, print an error and exit
+    if !optional && len(missingVars) > 0 {
+        fmt.Println("\nError: Missing required environment variables for deployment:\n")
+        for _, varName := range missingVars {
+            fmt.Printf("  - %s\n", varName)
+        }
+        os.Exit(1)
+    }
+}
+
+// isValidDeployment checks if the given Salesforce deployment has valid credentials
+func isValidDeployment(s *Salesforce) bool {
+    return s.Url != "" && s.ConsumerKey != "" && s.ConsumerSecret != ""
+}
+
 //
-// GetEnvVars retrieves Salesforce credentials from environment variables
+// GetEnvVars retrieves Salesforce credentials from environment variables for up to 2 deployments
 //
 // Required environment variables:
 // - SALESFORCE_URL_1
 // - SALESFORCE_CONSUMER_KEY_1
 // - SALESFORCE_CONSUMER_SECRET_1
+// 
+// Optional environment variables:
+// - SALESFORCE_URL_2
+// - SALESFORCE_CONSUMER_KEY_2
+// - SALESFORCE_CONSUMER_SECRET_2
 
-func getEnvVars() Salesforce{
+func getEnvVars(d1, d2 *Salesforce) Salesforce {
 
-	s := Salesforce{}
+	requiredVars1 := []string{"SALESFORCE_URL_1", "SALESFORCE_CONSUMER_KEY_1", "SALESFORCE_CONSUMER_SECRET_1"}
+    requiredVars2 := []string{"SALESFORCE_URL_2", "SALESFORCE_CONSUMER_KEY_2", "SALESFORCE_CONSUMER_SECRET_2"}
 
-	requiredVars := []string{"SALESFORCE_URL_1", "SALESFORCE_CONSUMER_KEY_1", "SALESFORCE_CONSUMER_SECRET_1"}
-	missingVars := []string{}
+    // Set the first deployment (required)
+    setVars(d1, requiredVars1, false)
 
-	for _, varName := range requiredVars {
-			value := os.Getenv(varName)
-			if value == "" {
-					missingVars = append(missingVars, varName)
-			} else {
-					switch varName {
-					case "SALESFORCE_URL_1":
-							s.Url = value
-					case "SALESFORCE_CONSUMER_KEY_1":
-							s.ConsumerKey = value
-					case "SALESFORCE_CONSUMER_SECRET_1":
-							s.ConsumerSecret = value
-					}
-			}
-	}
+    // Set the second deployment (optional)
+    setVars(d2, requiredVars2, true)
 
-    if len(missingVars) > 0 {
-        fmt.Println("\nError: Missing required environment variables:\n")
-        for _, varName := range missingVars {
-                fmt.Printf("  - %s\n", varName)
-        }
-		fmt.Printf("\n\nExiting %s ...\n\n", os.Args[0])
-        os.Exit(1)
+    // Check if credentials are valid and take the first valid deployment
+    if isValidDeployment(d1) {
+        return *d1
+    } else if isValidDeployment(d2) {
+        return *d2
     }
 
-	return s
+     // If neither deployment is valid, return an error
+     fmt.Println("Error: Missing required environment variables for both deployments.")
+     os.Exit(1)
 
+     return Salesforce{}
 
+}
+
+func changeDeployment(d1, d2 *Salesforce) Salesforce {
+    fmt.Println("\nAvailable Deployments:\n")
+    if d1.Url != "" {
+        fmt.Println("1. ", d1.Url)
+    } else {
+        fmt.Println("1.  Not configured")
+    }
+    if d2.Url != "" {
+        fmt.Println("2. ", d2.Url)
+    } else {
+        fmt.Println("2.  Not configured")
+    }
+
+    fmt.Print("\nSelect the deployment you want to switch to (1 or 2): ")
+    var choice string
+    fmt.Scanln(&choice)
+
+    switch choice {
+    case "1":
+        if d1.Url == "" {
+            fmt.Println("\nDeployment 1 is not configured.")
+            return *d2
+        }
+        return *d1
+    case "2":
+        if d2.Url == "" {
+            fmt.Println("\nDeployment 2 is not configured.")
+            return *d1
+        }
+        return *d2
+    default:
+        fmt.Println("Invalid choice. No changes made.")
+        return *d1 // Return the current deployment if invalid choice
+    }
 }
 
 // getAccessToken retrieves an access token from Salesforce
@@ -131,8 +195,8 @@ func getAccessToken(s *Salesforce) (string, error) {
     form.Add("client_secret", s.ConsumerSecret)
 
     // 1. Print request details for debugging
-    // fmt.Printf("Sending POST request to: %s\n", s.Url)
-    // fmt.Printf("Form data: %v\n", form)
+    //fmt.Printf("Sending POST request to: %s\n", s.Url)
+    //fmt.Printf("Form data: %v\n", form)
 
     req, err := http.NewRequest("POST", s.Url+"/services/oauth2/token", strings.NewReader(form.Encode()))
     if err != nil {
@@ -191,14 +255,14 @@ func getAccessToken(s *Salesforce) (string, error) {
 //		- A string with the SOQL query
 //		- A destination interface to store the query results
 //
-func querySalesforce(salesforce *Salesforce, soql string, dest interface{}) error {
+func querySalesforce(s *Salesforce, soql string, dest interface{}) error {
     // Create the HTTP request
-    req, err := http.NewRequest("GET", salesforce.Url+salesforceAPIBaseURL+"/query?q="+url.QueryEscape(soql), nil)
+    req, err := http.NewRequest("GET", s.Url+salesforceAPIBaseURL+"/query?q="+url.QueryEscape(soql), nil)
     if err != nil {
         return fmt.Errorf("error creating request: %w", err)
     }
 
-    req.Header.Set("Authorization", "Bearer "+salesforce.AccessToken)
+    req.Header.Set("Authorization", "Bearer "+s.AccessToken)
 
     // Make the API call
     client := &http.Client{}
@@ -211,16 +275,16 @@ func querySalesforce(salesforce *Salesforce, soql string, dest interface{}) erro
     // Check for successful response
     if resp.StatusCode == http.StatusUnauthorized {
         // 401 Unauthorized indicates session expired, try to refresh the token
-        fmt.Println("Session expired, refreshing token...")
+        fmt.Println("Session expired, refreshing token...\n")
 
         // Get a new access token
-        _, err := getAccessToken(salesforce)
+        _, err := getAccessToken(s)
         if err != nil {
             return fmt.Errorf("error refreshing access token: %w", err)
         }
 
         // Retry the request with the new token
-        req.Header.Set("Authorization", "Bearer "+salesforce.AccessToken)
+        req.Header.Set("Authorization", "Bearer "+s.AccessToken)
         resp, err = client.Do(req)
         if err != nil {
             return fmt.Errorf("error making request after token refresh: %w", err)
@@ -394,6 +458,35 @@ func printTasks(tasks []Task) {
     }
 }
 
+func printObjectCounts(salesforce *Salesforce) {
+    // Define a list of SOQL queries for counting different objects
+    queries := map[string]string{
+        "accounts":      "SELECT COUNT() FROM Account",
+        "contacts":      "SELECT COUNT() FROM Contact",
+        "opportunities": "SELECT COUNT() FROM Opportunity",
+        "tasks":         "SELECT COUNT() FROM Task",
+    }
+
+    // Iterate through the queries and print counts
+    fmt.Println("\nDeployment counts:\n")
+    for object, query := range queries {
+        var countResponse struct {
+            TotalSize int `json:"totalSize"`
+        }
+        
+        // Execute the query and handle errors
+        err := querySalesforce(salesforce, query, &countResponse)
+        if err != nil {
+            fmt.Printf("Error retrieving count for %s: %s\n", object, err)
+            continue // Skip to the next object on error
+        }
+
+        // Print the count for the object
+        fmt.Printf("  %s: %d\n", object, countResponse.TotalSize)
+    }
+}
+
+
 // main is the entry point of the Salesforce CLI tool.
 //
 // Requires:
@@ -406,17 +499,30 @@ func main() {
 	fmt.Println("\n\nSalesforce CLI")
 	fmt.Println("--------------\n\n")
 
+    // Define pointers to Salesforce structs for each deployment and current deployment
+    var deployment1, deployment2, currentDeployment Salesforce
+
 	// Get and print environment variables with Salesforce credentials
-	salesforceCreds := getEnvVars()
+	currentDeployment = getEnvVars(&deployment1, &deployment2)
 
 	// Get access token
-	_, err := getAccessToken(&salesforceCreds)
+	_, err := getAccessToken(&currentDeployment)
 	if err != nil {
 		fmt.Println("Error getting access token:", err)
 		return
 	}
 
-	printSalesforceCreds(&salesforceCreds)
+    printSalesforceCreds(&currentDeployment)
+    printObjectCounts(&currentDeployment)
+
+    // Check if both deployments are valid
+    bothDeploymentsValid := isValidDeployment(&deployment1) && isValidDeployment(&deployment2)
+    if bothDeploymentsValid {
+        print("\nYou have two valid Salesforce deployments:\n")
+        print("\n  ", deployment1.Url)
+        print("\n  ", deployment2.Url)
+        print("\n")
+    }
 
 	// Main menu
 	for {
@@ -424,7 +530,8 @@ func main() {
 		fmt.Println("1. Search accounts")
 		fmt.Println("2. Search contacts")
         fmt.Println("3. Search tasks")
-		fmt.Println("4. Exit\n")
+        fmt.Println("4. Change Salesforce deployment")
+		fmt.Println("5. Exit\n")
 
 		var option string
 		fmt.Print("Enter your option: ")
@@ -437,7 +544,7 @@ func main() {
 			fmt.Print("\nEnter account name filter: ")
 			fmt.Scanln(&nameFilter)
 		
-			accounts, err := getAccountsByName(&salesforceCreds, nameFilter)
+			accounts, err := getAccountsByName(&currentDeployment, nameFilter)
 			if err != nil {
 				fmt.Println("Error retrieving accounts:", err)
 				return
@@ -451,7 +558,7 @@ func main() {
 			fmt.Print("\nEnter contact first, last name, email or account name filter: ")
 			fmt.Scanln(&contactFilter)
 		
-			contacts, err := getContacts(&salesforceCreds, contactFilter)
+			contacts, err := getContacts(&currentDeployment, contactFilter)
 			if err != nil {
 				fmt.Println("Error retrieving contacts:", err)
 				return
@@ -465,7 +572,7 @@ func main() {
             fmt.Print("\nEnter task subject, contact first, last name, email or account name filter: ")
             fmt.Scanln(&taskFilter)
 
-            tasks, err := getTasks(&salesforceCreds, taskFilter)
+            tasks, err := getTasks(&currentDeployment, taskFilter)
             if err != nil {
                 fmt.Println("Error retrieving tasks:", err)
                 return
@@ -473,7 +580,19 @@ func main() {
 
             printTasks(tasks)
 
-		case "4":
+        case "4":
+
+            currentDeployment = changeDeployment(&deployment1, &deployment2)
+            fmt.Println("\nSwitched to deployment:", currentDeployment.Url)
+            printObjectCounts(&currentDeployment)
+            // Get access token for the new deployment
+            _, err := getAccessToken(&currentDeployment)
+            if err != nil {
+                fmt.Println("Error getting access token:", err)
+                return
+            }
+
+		case "5":
 			fmt.Println("\nExiting...")
 			return
 		default:
