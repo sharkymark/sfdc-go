@@ -37,6 +37,20 @@ Retrieve the Consumer Key and Consumer Secret from the Salesforce UI, View Setup
 
 The app authenticates uses these environment variables and generates an OAuth Access Token that is used for SOQL Salesforce calls.
 
+## Multiple Salesforce deployment support
+
+The app allows up to 2 Salesforce deployments. When the app starts, the first one entered is loaded. There is an action in the CLI to switch to another deployment if environment variables have been entered.
+
+```sh
+# set environment variables
+export SALESFORCE_CONSUMER_KEY_1=""
+export SALESFORCE_CONSUMER_SECRET_1=""
+export SALESFORCE_URL_1=""
+export SALESFORCE_CONSUMER_KEY_2=""
+export SALESFORCE_CONSUMER_SECRET_2=""
+export SALESFORCE_URL_2=""
+```
+
 ## Resources
 
 [Go](https://go.dev/)
