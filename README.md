@@ -51,6 +51,16 @@ export SALESFORCE_CONSUMER_SECRET_2=""
 export SALESFORCE_URL_2=""
 ```
 
+## Creating a binary
+
+`.gitignore` is set to ignore `main` and `sfdc-go` binaries to reduce repository size. `git build .` uses the OS and architecture of the development machine. To create other binaries, use examples like:
+
+```sh
+GOOS=darwin GOARCH=arm64 go build -o sfdc-go_darwin_arm64
+GOOS=linux GOARCH=amd64 go build -o sfdc-go_linux_amd64
+GOOS=windows GOARCH=amd64 go build -o sfdc-go_windows_amd64.exe
+```
+
 ## Resources
 
 [Go](https://go.dev/)
