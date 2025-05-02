@@ -1,7 +1,7 @@
 {
   "name": "Salesforce CLI w Go",
   "build": {
-    "dockerfile": "../Dockerfile",
+    "dockerfile": "Dockerfile",
     "context": "."
   },
   "containerEnv": {
@@ -10,7 +10,8 @@
     "SALESFORCE_CONSUMER_SECRET_1": "${localEnv:SALESFORCE_CONSUMER_SECRET_1}",
     "SALESFORCE_URL_2": "${localEnv:SALESFORCE_URL_2}",
     "SALESFORCE_CONSUMER_KEY_2": "${localEnv:SALESFORCE_CONSUMER_KEY_2}",
-    "SALESFORCE_CONSUMER_SECRET_2": "${localEnv:SALESFORCE_CONSUMER_SECRET_2}"
+    "SALESFORCE_CONSUMER_SECRET_2": "${localEnv:SALESFORCE_CONSUMER_SECRET_2}",
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "${localEnv:GITHUB_PERSONAL_ACCESS_TOKEN}"
   },
   "customizations": {
     "vscode": {
@@ -20,7 +21,7 @@
       ]
       }  
   }, 
-  "postCreateCommand": "bash -c '[ ! -f go.mod ] && go mod init sfdc-go || true; go mod tidy'",
+  "postCreateCommand": "bash -c '[ ! -f go.mod ] && go mod init sfdc-go || true; go mod tidy' && echo \"${GITHUB_PERSONAL_ACCESS_TOKEN}\" | gh auth login --with-token && echo 'Authentication successful' && git config --global --add safe.directory \"$(git rev-parse --show-toplevel)\"",
   "postStartCommand": "bash -c 'go build -o main . && ./main'",
   "forwardPorts": []
 }
